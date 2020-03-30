@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 public class CoronaScraper {
 
-    static DateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH_mm");
+    static DateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     static DateFormat outputFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm");
 
     public static void main(String[] args) throws IOException, ParseException {
