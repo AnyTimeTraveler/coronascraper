@@ -32,19 +32,24 @@ public class CoronaScraper {
             Document doc = Jsoup.parse(file, "UTF-8");
             Elements select = doc.select(".content__textbox > table:nth-child(7)");
             Element table = select.first();
-            Date date = inputFormat.parse(file.getName().substring(0, file.getName().lastIndexOf('+')).replace('T', ' '));
+            Date date = inputFormat.parse(file.getName().substring(0, file.getName().lastIndexOf('+')).replace('T', ' ').replace('_', ':'));
 
             for (Element row : table.child(0).children()) {
                 try {
+                    String locationName = row.child(0).text()
+                        .replace("Stadt", "")
+                        .replace("Samtgemeinde", "")
+                        .replace("Einheitsgemeinde", "")
+                        .trim();
                     switch (row.childrenSize()) {
                         case 3:
                             recoveries.putIfAbsent(date, new HashMap<>());
                             Map<String, Integer> cityRecoveries = recoveries.get(date);
-                            cityRecoveries.put(row.child(0).text(), Integer.parseInt(row.child(2).text()));
+                            cityRecoveries.put(locationName, Integer.parseInt(row.child(2).text()));
                         case 2:
                             cases.putIfAbsent(date, new HashMap<>());
                             Map<String, Integer> cityCases = cases.get(date);
-                            cityCases.put(row.child(0).text(), Integer.parseInt(row.child(1).text()));
+                            cityCases.put(locationName, Integer.parseInt(row.child(1).text()));
                             break;
                         case 1:
                             System.out.println("Unknown: " + row.child(0));
@@ -55,6 +60,14 @@ public class CoronaScraper {
                 }
             }
         }
+
+        removeCloumn(recoveries, "Aktuelle Covid-19-Fälle");
+        removeCloumn(cases, "Aktuelle Covid-19-Fälle");
+
+        removeCloumn(recoveries, "Aktuelle Gesamtzahl (Zahl der bestätigten Fälle abzüglich der Genesenen)");
+        removeCloumn(cases, "Aktuelle Gesamtzahl (Zahl der bestätigten Fälle abzüglich der Genesenen)");
+
+        removeCloumn(recoveries, "Todesfälle");
 
         renameTotal(cases);
         renameTotal(recoveries);
@@ -67,6 +80,7 @@ public class CoronaScraper {
         }
         List<String> orderedLocations = new ArrayList<>(locations);
         orderedLocations.remove("Gesamt");
+        orderedLocations.remove("Todesfälle");
 
         dedup(cases, orderedLocations);
         dedup(recoveries, orderedLocations);
@@ -75,11 +89,17 @@ public class CoronaScraper {
         printCSV("Recoveries", orderedLocations, recoveries);
     }
 
+    private static void removeCloumn(Map<Date, Map<String, Integer>> map, String key) {
+        for (Map<String, Integer> e : map.values()) {
+            e.remove(key);
+        }
+    }
+
     private static void renameTotal(Map<Date, Map<String, Integer>> map) {
         for (Map<String, Integer> date : map.values()) {
             Map<String, Integer> keys = new HashMap<>();
             for (String key : date.keySet()) {
-                if (key.toLowerCase().contains("gesamt") || key.isBlank() || key.equals("Aktuelle Covid-19-Fälle")) {
+                if (key.toLowerCase().contains("gesamt") || key.isBlank()) {
                     keys.put(key, date.get(key));
 //                    System.out.print("Eliminating :");
 //                    System.out.println(key);
@@ -117,10 +137,15 @@ public class CoronaScraper {
         }
     }
 
-    private static void printCSV(String name, List<String> orderedLocations, Map<Date, Map<String, Integer>> cases) {
+    private static void printCSV(String name, List<String> orderedLocations, Map<Date, Map<String, Integer>> data) {
         // header
         System.out.print(name);
         System.out.print(",Gesamt");
+        boolean deaths = false;
+        if (data.values().stream().anyMatch(e -> e.containsKey("Todesfälle"))) {
+            deaths = true;
+            System.out.print(",Todesfälle");
+        }
         for (String location : orderedLocations) {
             System.out.print(",");
             System.out.print(location);
@@ -128,13 +153,17 @@ public class CoronaScraper {
         System.out.println();
 
         // body
-        for (Map.Entry<Date, Map<String, Integer>> entry : cases.entrySet().stream().sorted(Map.Entry.comparingByKey()).collect(Collectors.toList())) {
+        for (Map.Entry<Date, Map<String, Integer>> entry : data.entrySet().stream().sorted(Map.Entry.comparingByKey()).collect(Collectors.toList())) {
 
             // date at the start
             System.out.print(outputFormat.format(entry.getKey()));
 
             System.out.print(',');
             System.out.print(entry.getValue().getOrDefault("Gesamt", 0));
+            if (deaths) {
+                System.out.print(',');
+                System.out.print(entry.getValue().getOrDefault("Todesfälle", 0));
+            }
             // count at each location
             for (String location : orderedLocations) {
                 System.out.print(',');
