@@ -3,7 +3,6 @@ package org.simonscode.coronascraper;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,11 +29,10 @@ public class CoronaScraper {
         for (String arg : args) {
             File file = new File(arg);
             Document doc = Jsoup.parse(file, "UTF-8");
-            Elements select = doc.select(".content__textbox > table:nth-child(7)");
-            Element table = select.first();
+            Element table = doc.getElementsByTag("tbody").first();
             Date date = inputFormat.parse(file.getName().substring(0, file.getName().lastIndexOf('+')).replace('T', ' ').replace('_', ':'));
 
-            for (Element row : table.child(0).children()) {
+            for (Element row : table.children()) {
                 try {
                     String locationName = row.child(0).text()
                         .replace("Stadt", "")
